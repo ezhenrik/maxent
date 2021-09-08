@@ -1,4 +1,22 @@
 import numpy as np
+from scipy import stats
+from sklearn.metrics import r2_score
+
+def r2(d):
+    y_true = d['freq']
+    y_pred = np.zeros(len(d['X'].T[0]))
+
+    for i, x in enumerate(d['p_hat_pred']):
+        y_pred[i] = x*d['y_freq'][d['Y'][i]]
+
+    numerator = ((y_true - y_pred) ** 2).sum(axis=0, dtype=np.float64)
+    denominator = ((y_true - np.average(
+        y_true, axis=0)) ** 2).sum(axis=0, dtype=np.float64)
+
+    r2 = 1 - (numerator / denominator)
+    r2_adj = 1 - (1 - r2) * ((d['obs']-1) / (d['obs'] - len(d['X'][0]) - 1))
+
+    return r2_adj
 
 def learn(X, freq, Y=False, **kwargs):
     X = np.array(X)
@@ -86,8 +104,11 @@ def learn(X, freq, Y=False, **kwargs):
 
         # Report
         if d['i'] % d['report_step'] == 0 and d['report_callback']:
+
+            d['r2'] = r2(d)
             d['report_callback'](d)
 
         d['i'] += 1
 
+    d['r2'] = r2(d)
     return d
