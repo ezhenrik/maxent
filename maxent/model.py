@@ -1,114 +1,117 @@
 import numpy as np
-from scipy import stats
-from sklearn.metrics import r2_score
 
-def r2(d):
-    y_true = d['freq']
-    y_pred = np.zeros(len(d['X'].T[0]))
+from .plots import plot_terminal, plot_pdf
 
-    for i, x in enumerate(d['p_hat_pred']):
-        y_pred[i] = x*d['y_freq'][d['Y'][i]]
+class Model:
 
-    numerator = ((y_true - y_pred) ** 2).sum(axis=0, dtype=np.float64)
-    denominator = ((y_true - np.average(
-        y_true, axis=0)) ** 2).sum(axis=0, dtype=np.float64)
+    def __init__(self, X, freq, Y=False, **kwargs):
+        X = np.array(X)
+        Y = np.array(Y) if Y else np.zeros(len(freq), dtype=int)
+        freq = np.array(freq)
 
-    r2 = 1 - (numerator / denominator)
-    r2_adj = 1 - (1 - r2) * ((d['obs']-1) / (d['obs'] - len(d['X'][0]) - 1))
+        self.d = {
+            'X': X,
+            'Y': Y,
+            'y_freq': np.zeros(len(np.unique(Y))),
+            'freq': freq,
+            'freq_pred': np.zeros(len(freq)),
+            'freq_max': np.amax(Y),
+            'f': np.ones(len(X[0])),
+            'obs': np.sum(freq),
+            'm': len(X),
+            'p_hat':  np.zeros(len(freq)),
+            'p_hat_pred':  np.zeros(len(freq)),
+            'last_loglikelihood': '',
+            'grads': np.zeros(len(X[0])),
+            'loglikelihood': -9999999,
+            'E_f': np.sum(X.T*freq, axis=1),
+            'E_f_pred': np.zeros(len(X[0])),
+            'sigma': kwargs.get('sigma', 1000000),
+            'mu': kwargs.get('mu', 0),
+            'f_names': kwargs.get('f_names', [f'f_{i+1}' for i, x in enumerate(X[0])]),
+            'x_names': kwargs.get('x_names', [f'x_{i+1}' for i, x in enumerate(X.T[0])]),
+            'alpha': kwargs.get('alpha', 0.001),
+            'clip': kwargs.get('clip', 1),
+            'convergence': kwargs.get('convergence', 0.00000000001),
+            'convergent': 0,
+            'r2_adj': 0,
+            'limit': kwargs.get('limit', 500000),
+            'report_step': kwargs.get('report_step', 1000),
+            'report_callback': kwargs.get('report_callback', lambda: print(self.d['r2_adj'], end='\r')),
+            'i': 0,
+        }
 
-    return r2_adj
+        # Calculate y frequencies                                                                                                  
+        for i,f in zip(self.d['Y'],freq): self.d['y_freq'][i] += f
 
-def learn(X, freq, Y=False, **kwargs):
-    X = np.array(X)
-    freq = np.array(freq)
+        # Calculate p hat
+        for i, x in enumerate(self.d['freq']): self.d['p_hat'][i] = (x / (self.d['y_freq'][self.d['Y'][i]] or 1))
 
-    d = {
-        'X': X,
-        'Y': np.array(Y) if Y else np.zeros(len(X.T[0]), dtype=int),
-        'freq': freq,
-        'f': np.ones(len(X[0])),
-        'obs': np.sum(freq),
-        'm': len(X),
-        'p_hat_pred':  np.zeros(len(X.T[0])),
-        'last_loglikelihood': '',
-        'grads': np.zeros(len(X[0])),
-        'loglikelihood': -9999999,
-        'E_f': np.sum(X.T*freq, axis=1),
-        'E_f_pred': np.zeros(len(X[0])),
-        'sigma': kwargs.get('sigma', 1000000),
-        'mu': kwargs.get('mu', 0),
-        'f_names': kwargs.get('f_names', [f'f_{i+1}' for i, x in enumerate(X[0])]),
-        'x_names': kwargs.get('x_names', [f'x_{i+1}' for i, x in enumerate(X.T[0])]),
-        'alpha': kwargs.get('alpha', 0.001),
-        'clip': kwargs.get('clip', 1),
-        'convergence': kwargs.get('convergence', 0.00000000001),
-        'convergent': 0,
-        'limit': kwargs.get('limit', 500000),
-        'report_step': kwargs.get('report_step', 1000),
-        'report_callback': kwargs.get('report_callback'),
-        'i': 0,
-    }
+        self.plot_terminal = lambda: print(plot_terminal(self.d))
+        self.plot_pdf = lambda x: plot_pdf(self.d, x)
 
-    np.set_printoptions(suppress=kwargs.get('suppress_e', True))
+        np.set_printoptions(suppress=kwargs.get('suppress_e', True))
 
-    # Calculate y frequencies
-    d['y_freq'] = np.zeros(len(np.unique(d['Y'])))                                                                                                    
-    for i,f in zip(d['Y'],freq): 
-        d['y_freq'][i] += f
+    def predict(self):
+        for i, x in enumerate(self.d['p_hat_pred']):
+            self.d['freq_pred'][i] = x*self.d['y_freq'][self.d['Y'][i]]
 
-    # Calculate p hat
-    d['p_hat'] = np.zeros(len(d['freq']))
-    for i, x in enumerate(d['freq']):
-        d['p_hat'][i] = (x / (d['y_freq'][d['Y'][i]] or 1))
+    def r2_adj(self):
+        numerator = ((self.d['freq'] - self.d['freq_pred']) ** 2).sum(axis=0, dtype=np.float64)
+        denominator = ((self.d['freq'] - np.average(self.d['freq'], axis=0)) ** 2).sum(axis=0, dtype=np.float64)
+        r2 = 1 - (numerator / denominator)
+        r2_adj = 1 - (1 - r2) * ((self.d['obs']-1) / (self.d['obs'] - len(self.d['X'][0]) - 1))
+        self.d['r2_adj'] = r2_adj
 
-    while d['i'] < d['limit'] and not d['convergent']:
+    def fit(self):
+        while self.d['i'] < self.d['limit'] and not self.d['convergent']:
 
-        # Get harmonies
-        hs = np.exp(-np.dot(d['X'], d['f']))
+            # Get harmonies
+            hs = np.exp(-np.dot(self.d['X'], self.d['f']))
 
-        # Get Zs (for each y)
-        Zs = np.zeros(len(np.unique(d['Y'])))                                                                                                    
-        for i, h in zip(d['Y'],hs): 
-            Zs[i] += h 
+            # Get Zs (for each y)
+            Zs = np.zeros(len(np.unique(self.d['Y'])))                                                                                                    
+            for i, h in zip(self.d['Y'],hs): 
+                Zs[i] += h 
 
-        # Partition using Zs
-        for i, y in enumerate(d['Y']):
-            d['p_hat_pred'][i] = hs[i]/Zs[y]
+            # Partition using Zs
+            for i, y in enumerate(self.d['Y']):
+                self.d['p_hat_pred'][i] = hs[i]/Zs[y]
 
-        # Get log likelihood (first saving previous value)
-        d['last_loglikelihood'] = d['loglikelihood']
-        d['loglikelihood'] = np.dot(d['freq'], np.log(d['p_hat_pred']))
+            # Get log likelihood (first saving previous value)
+            self.d['last_loglikelihood'] = self.d['loglikelihood']
+            self.d['loglikelihood'] = np.dot(self.d['freq'], np.log(self.d['p_hat_pred']))
 
-        # Get predicted feature values
-        for i, x in enumerate(d['X'].T):
-            f_pred = 0
-            for j, y in enumerate(x):
-                f_pred  += y*d['p_hat_pred'][j]*d['y_freq'][d['Y'][j]]
-            d['E_f_pred'][i] = f_pred
+            # Get predicted feature values
+            for i, x in enumerate(self.d['X'].T):
+                f_pred = 0
+                for j, y in enumerate(x):
+                    f_pred  += y*self.d['p_hat_pred'][j]*self.d['y_freq'][self.d['Y'][j]]
+                self.d['E_f_pred'][i] = f_pred
 
-        # Get gradients
-        d['grads'] =  d['E_f'] - d['E_f_pred']
+            # Get gradients
+            self.d['grads'] =  self.d['E_f'] - self.d['E_f_pred']
 
-        # Gradient descent
-        d['f'] -= d['alpha'] * d['grads']
+            # Gradient descent
+            self.d['f'] -= self.d['alpha'] * self.d['grads']
 
-        # Priors
-        d['f'] -= (d['f']-d['mu'])/d['sigma']
+            # Priors
+            self.d['f'] -= (self.d['f']-self.d['mu'])/self.d['sigma']
 
-        # Clip, if set
-        if d['clip']:
-            d['f'] = np.clip(d['f'], 0, None)
+            # Clip, if set
+            if self.d['clip']:
+                self.d['f'] = np.clip(self.d['f'], 0, None)
 
-        # Check convergence
-        d['convergent'] = (d['loglikelihood'] - d['last_loglikelihood']) < d['convergence']
+            # Check convergence
+            self.d['convergent'] = (self.d['loglikelihood'] - self.d['last_loglikelihood']) < self.d['convergence']
 
-        # Report
-        if d['i'] % d['report_step'] == 0 and d['report_callback']:
+            # Report
+            if self.d['i'] % self.d['report_step'] == 0:
+                self.predict()
+                self.r2_adj()
+                self.d['report_callback']()
 
-            d['r2'] = r2(d)
-            d['report_callback'](d)
+            self.d['i'] += 1
 
-        d['i'] += 1
-
-    d['r2'] = r2(d)
-    return d
+        self.predict()
+        self.r2_adj()

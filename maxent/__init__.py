@@ -1,1 +1,1 @@
-from .model import learn
+from .Model import Model

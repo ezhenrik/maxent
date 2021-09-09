@@ -17,8 +17,7 @@ X = [
 ]
 
 if __name__ == '__main__':
-    def report(val):
-        print(val['r2'], end='\r')
-
-    model = maxent.learn(X, freq, Y, report_callback=report)
-    print(model)
+    model = maxent.Model(X, freq, Y)
+    model.fit()
+    model.plot_terminal()
+    model.plot_pdf('plot.pdf')
