@@ -66,7 +66,7 @@ def plot_pdf(d, path):
     oper = '-' if a < 0 else '+'
 
     label = '$y = %1.3gx %s %1.3g$\n$R^2_{adj} = %1.3g$' % (b, oper, np.abs(a), d['r2_adj'])
-    extra_label = '%s patterns\n$n$ = %s' % (d['m'], d['obs'])
+    extra_label = '%s candidates\n$n$ = %s' % (d['m'], d['obs'])
 
     ax.text(0.95, 0.05, label, horizontalalignment='right',
         verticalalignment='bottom',
