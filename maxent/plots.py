@@ -79,4 +79,43 @@ def plot_pdf(d, path):
     plt.savefig(path, format='pdf',dpi=600)
     plt.clf()
 
+def results_terminal(d):
+    f_labeled = np.column_stack((d['f_names'],d['f'].astype(np.object)))
+    f_sorted = f_labeled[f_labeled[:,1].argsort()[::-1]]
+    f_sorted = np.insert(f_sorted, 0, ['Feature', 'Weight'] , axis=0)
 
+    x_labeled = np.column_stack((d['x_names'], d['freq'].astype(np.object),d['freq_pred'].astype(np.object),(d['freq']-d['freq_pred']).astype(np.object)))
+    x_zeros = x_labeled[x_labeled[:,1]==0]
+
+    x_sorted = x_labeled[x_labeled[:,3].argsort()]
+    x_zeros_sorted = x_zeros[x_zeros[:,3].argsort()]
+
+    margin = min(15, d['m'])
+    overgens, undergens = x_sorted[0:margin], x_sorted[-margin:]
+    overgens_zero = x_zeros_sorted[0:margin]
+
+    # Table 1: Over- and undergenerated
+    table_data = [['Pattern', 'Observed', 'Predicted', 'Difference']] + overgens.tolist() + [['...', '...', '...', '...']] + undergens.tolist()
+    table = AsciiTable(table_data)
+    print(table.table)
+
+    # Table 2: Overgenerated with 0 frequency
+    table_data = [['Pattern (overgens of zero)', 'Observed', 'Predicted', 'Difference']] + overgens_zero.tolist()
+    table = AsciiTable(table_data)
+    print(table.table)
+
+    # Table 3: Model data
+    table_data = [
+        ['Stats', 'Value'],
+        ['Epochs', '%s' % d['i']],
+        ['Convergent', '%s' % d['convergent']],
+        ['Candidates', '%s' % d['m']],
+        ['Attested candidates', '%s' % d['x_nonzero']],
+        ['N observations', '%s' % d['obs']],
+        ['N features', '%s' % len(d['f'])],
+        ['R2-adj', '%.10f' % d['r2_adj']],
+        ['Log-likelihood', '%.10f' % d['loglikelihood']],
+    ]
+    table = AsciiTable(table_data)
+    print(table.table)
+    print()

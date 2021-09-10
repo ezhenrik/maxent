@@ -20,4 +20,5 @@ if __name__ == '__main__':
     model = maxent.Model(X, freq, Y)
     model.fit()
     model.plot_terminal()
+    model.results_terminal()
     model.plot_pdf('plot.pdf')

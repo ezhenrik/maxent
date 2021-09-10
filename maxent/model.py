@@ -1,6 +1,6 @@
 import numpy as np
 
-from .plots import plot_terminal, plot_pdf
+from .plots import plot_terminal, results_terminal, plot_pdf
 
 class Model:
 
@@ -19,6 +19,7 @@ class Model:
             'f': np.ones(len(X[0])),
             'obs': np.sum(freq),
             'm': len(X),
+            'x_nonzero': np.count_nonzero(freq),
             'p_hat':  np.zeros(len(freq)),
             'p_hat_pred':  np.zeros(len(freq)),
             'last_loglikelihood': '',
@@ -48,8 +49,9 @@ class Model:
         for i, x in enumerate(self.d['freq']): self.d['p_hat'][i] = (x / (self.d['y_freq'][self.d['Y'][i]] or 1))
 
         self.plot_terminal = lambda: print(plot_terminal(self.d))
+        self.results_terminal = lambda: results_terminal(self.d)
         self.plot_pdf = lambda x: plot_pdf(self.d, x)
-
+    
         np.set_printoptions(suppress=kwargs.get('suppress_e', True))
 
     def predict(self):
