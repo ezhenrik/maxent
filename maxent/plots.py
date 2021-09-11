@@ -104,7 +104,11 @@ def results_terminal(d):
     table = AsciiTable(table_data)
     print(table.table)
 
-    # Table 3: Model data
+    # Table 3: Features
+    table = AsciiTable(f_sorted.tolist())
+    print(table.table)
+
+    # Table 4: Model info
     table_data = [
         ['Stats', 'Value'],
         ['Epochs', '%s' % d['i']],
