@@ -7,5 +7,5 @@ setup(
     author_email='erik.ilmari.henriksson@gmail.com',
     description='A simple MaxEnt modeling package',
     packages=['maxent'],
-    install_requires=['numpy'],
+    install_requires=find_packages()
 )
