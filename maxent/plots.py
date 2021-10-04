@@ -16,17 +16,13 @@ matplotlib.rcParams.update({
 matplotlib.rc('axes',edgecolor='dimgrey')
 
 def best_fit(X, Y):
-
     xbar = sum(X)/len(X)
     ybar = sum(Y)/len(Y)
-    n = len(X) # or len(Y)
-
+    n = len(X)
     numer = sum(xi*yi for xi,yi in zip(X, Y)) - n * xbar * ybar
     denum = sum(xi**2 for xi in X) - n * xbar**2
-
     b = numer / denum
     a = ybar - b * xbar
-
     return a, b
 
 def plot_terminal(d):
@@ -42,12 +38,12 @@ def plot_terminal(d):
         'plot_command': 'plot "-" pt "*"'
     }
     fig.plot(d['freq_pred'], d['freq'], **plot_config)
-    return fig.get_string()
+    print(fig.get_string())
     
 def plot_pdf(d, path):
     fontsize = 10
     figdim = 1 / 72.27 * 455.25 * 0.60
-    fig, ax = plt.subplots(figsize=(figdim * 1.12, figdim))
+    _, ax = plt.subplots(figsize=(figdim * 1.12, figdim))
     ax.scatter(d['freq'], d['freq_pred'], color="black", s=10,rasterized=True)
     plt.xlabel("Predicted", fontsize=fontsize)
     plt.ylabel("Observed", fontsize=fontsize)
@@ -119,6 +115,7 @@ def results_terminal(d):
         ['N features', '%s' % len(d['f'])],
         ['R2-adj', '%.10f' % d['r2_adj']],
         ['Log-likelihood', '%.10f' % d['loglikelihood']],
+        ['AICc', '%.10f' % d['aicc']],
     ]
     table = AsciiTable(table_data)
     print(table.table)
